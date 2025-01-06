@@ -26,40 +26,48 @@ module interface ();
 
     // flash
     reg cs;
-	reg we;
-	reg re;
-	reg [23:0] addr;
-	reg [7:0] in;
-	wire [7:0] out;
+    reg we;
+    reg re;
+    reg [23:0] addr;
+    reg [7:0] in;
+    wire [7:0] out;
 
     // pc
     reg [1:0] pc_handle;
     wire [23:0] pc_out;
 
-	// registers
-	reg [23:0] mar;
-	reg [31:0] mbr;
-	reg [31:0] ir;
+    // registers
+    reg [23:0] mar;
+    reg [31:0] mbr;
+    reg [31:0] ir;
 
-	// cu
+    // cu
     wire [1:0] current_state;
     wire program_running;
     reg [23:0] current_addr;
     parameter FETCH = 2'b00;
     parameter DECODE = 2'b01;
     parameter EXECUTE = 2'b10;
-	parameter MEMORY = 2'b11;
+    parameter MEMORY = 2'b11;
     parameter HALT_INSTRUCTION = 32'h00000000;
 
-	// decode signals
+    // alu
+    reg [7:0] A, B;
+    reg [3:0] alu_opcode;
+    wire [31:0] result;
+    wire cf;
+    wire zf;
+    wire nf;
+    wire of;
+
+    // decode signals
     reg [6:0] opcode;
     reg [4:0] rd, rs1, rs2;
     reg [11:0] imm;
     reg [2:0] funct3;
     reg [6:0] funct7;
-	reg [2:0] instruction_type;
 
-	integer i;
+    reg [31:0] register [31:0];
 
     mc mc_inst (
         .rst(rst),
@@ -70,11 +78,11 @@ module interface ();
     flash flash_inst (
         .clk(clk),
         .cs(cs),
-		.we(we),
-		.re(re),
-		.addr(addr),
-		.in(in),
-		.out(out)
+        .we(we),
+        .re(re),
+        .addr(addr),
+        .in(in),
+        .out(out)
     );
 
     pc pc_inst (
@@ -90,6 +98,19 @@ module interface ();
         .instruction(ir),
         .program_running(program_running),
         .current_state(current_state)
+    );
+
+    alu alu_inst (
+        .clk(clk),
+        .rst(rst),
+        .A(A),
+        .B(B),
+        .alu_opcode(alu_opcode),
+        .result(result),
+        .cf(cf),
+        .zf(zf),
+        .nf(nf),
+        .of(of)
     );
 
     task startup;
@@ -155,8 +176,6 @@ module interface ();
         reg [7:0] tbytes [3:0];
 		integer i;
 
-		output [31:0] ir;
-
         begin
             for (i = 0; i < 4; i = i + 1) begin
                 @(posedge clk);
@@ -177,6 +196,7 @@ module interface ();
             mbr = {tbytes[3], tbytes[2], tbytes[1], tbytes[0]};
             @(posedge clk);
             ir = mbr;
+
 			repeat(2) @(posedge clk);
 			$display("FETCH instruction=%h", ir);
 			while (current_state == FETCH) @(posedge clk);
@@ -184,64 +204,62 @@ module interface ();
     endtask
 
     task decode_instruction;
-		input [31:0] ir;
-
         begin
-			$display("FETCH instruction=%h", ir);
-			
-			opcode = ir[6:0];
-			rd = ir[11:7];
-			rs1 = ir[19:15];
-			rs2 = ir[24:20];
-			funct3 = ir[14:12];
-			funct7 = ir[31:25];
+            opcode = ir[6:0];
+            rd = ir[11:7];
+            rs1 = ir[19:15];
+            rs2 = ir[24:20];
+            funct3 = ir[14:12];
+            funct7 = ir[31:25];
 
-			case (ir[6:0])
-                7'b0110011: begin // R-type
-                    instruction_type = 3'b000;
-                    imm = 32'b0;
-                end
-                
-                7'b0010011, 7'b0000011, 7'b1100111: begin  // I-type
-                    instruction_type = 3'b001;
-                    imm = {{20{ir[31]}}, ir[31:20]};
-                end
-                
-                7'b0100011: begin // S-type
-                    instruction_type = 3'b010;
-                    imm = {{20{ir[31]}}, ir[31:25], ir[11:7]};
-                end
-                
-                7'b1100011: begin // B-type
-                    instruction_type = 3'b011;
-                    imm = {{19{ir[31]}}, ir[31], ir[7], ir[30:25], ir[11:8], 1'b0};
-                end
-                
-                7'b0110111, 7'b0010111: begin // U-type
-                    instruction_type = 3'b100;
-                    imm = {ir[31:12], 12'b0};
-                end
-                
-                7'b1101111: begin // J-type
-                    instruction_type = 3'b101;
-                    imm = {{11{ir[31]}}, ir[31], ir[19:12], ir[20], ir[30:21], 1'b0};
-                end
+            case (ir[6:0])
+                7'b0110011: imm = 32'b0;
+                7'b0010011: imm = {{20{ir[31]}}, ir[31:20]};
+                7'b0000011: imm = {{20{ir[31]}}, ir[31:20]};   
+                7'b0100011: imm = {{20{ir[31]}}, ir[31:25], ir[11:7]};           
+                7'b1100011: imm = {{19{ir[31]}}, ir[31], ir[7], ir[30:25], ir[11:8], 1'b0};
             endcase
 
-			while (current_state == DECODE) @(posedge clk);
+			repeat(2) @(posedge clk);
+            while (current_state == DECODE) @(posedge clk);
         end
     endtask
 
-    task execute_instruction;
-        begin
-
-			while (current_state == EXECUTE) @(posedge clk);
-        end
-    endtask
+	task execute_instruction;
+	    begin
+	        
 	
+	        repeat(2) @(posedge clk);
+	        while (current_state == EXECUTE) @(posedge clk);
+	    end
+	endtask
+
     task memory_access;
         begin
-
+			// TODO: figure out why values are not being written to registers
+            addr = 24'bx;
+            we = 0;
+            re = 0;
+            
+            repeat(2) @(posedge clk);
+            
+	        case (opcode)
+	            7'b0000011: begin
+					addr = imm;
+                    we = 0;
+                    re = 1;
+                    repeat(3) @(posedge clk);
+                    register[rd] = {{24{out[7]}}, out};
+                    we = 0;
+                    re = 0;
+                end
+	            7'b0100011: begin
+					
+	            end
+	            default: ;
+	        endcase
+            
+            repeat(2) @(posedge clk);
 			while (current_state == MEMORY) @(posedge clk);
         end
     endtask
@@ -249,21 +267,17 @@ module interface ();
     initial begin
         startup();
         
-		// write sample instructions stage
         write_instruction(24'h000000, 32'h02000283);
 		write_instruction(24'h000004, 32'h02100303);
-		//write_instruction(24'h000008, 32'h006283b3);
+		write_instruction(24'h000008, 32'h006283b3); // SOMETHING HAPPENS HERE, WHERE IT DOESNT FOLLOW TO THE FINISH (SOMETHING IS GOING ON WITH THE CASE STATEMENTS)
 		//write_instruction(24'h00000c, 32'h02700123);
-		//write_byte(24'h000010, 8'b00000001);
-		// end
-
+		write_byte(24'h000010, 8'b00000001);
 		write_instruction(current_addr, HALT_INSTRUCTION);
 
-        // fetch stage
         while (program_running) begin
             case (current_state)
-                2'b00: fetch_instruction(ir);
-                2'b01: decode_instruction(ir);
+                2'b00: fetch_instruction();
+                2'b01: decode_instruction();
                 2'b10: execute_instruction();
                 2'b11: memory_access();
                 default: ;
