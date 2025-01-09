@@ -8,6 +8,8 @@ module cu (
     output reg [1:0] current_state
 );
 
+// ADD INPUTS FOR THINGS THAT CAN BE RESET AFTER THE INSTRUCTIONS ARE COMPLETED
+
     parameter FETCH = 2'b00;
     parameter DECODE = 2'b01;
     parameter EXECUTE = 2'b10;
@@ -44,6 +46,7 @@ module cu (
                 
                 default: begin
                     program_running <= 0;
+					current_state <= FETCH;
                 end
             endcase
         end

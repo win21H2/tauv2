@@ -4,7 +4,7 @@ module alu (
     input wire clk,
     input wire rst,
     input wire [7:0] A, B,
-    input wire [3:0] alu_opcode,
+    input wire alu_opcode,
     output reg [31:0] result,
     output reg cf, // carry
     output reg zf, // zero
@@ -27,54 +27,54 @@ module alu (
             extended_B = {{24{B[7]}}, B};
 
             case (alu_opcode)
-                4'b0000: begin // ADD
+                1'h1: begin // ADD
                     temp = {1'b0, extended_A} + {1'b0, extended_B};
                     result <= temp[31:0];
                     cf <= temp[32];
                     of <= (extended_A[31] == extended_B[31]) && (result[31] != extended_A[31]);
                 end
-                4'b0001: begin // SUB
+                1'h2: begin // SUB
                     temp = {1'b0, extended_A} - {1'b0, extended_B};
                     result <= temp[31:0];
                     cf <= temp[32];
                     of <= (extended_A[31] != extended_B[31]) && (result[31] != extended_A[31]);
                 end
-                4'b0010: begin // AND
+                1'h3: begin // AND
                     result <= extended_A & extended_B;
                     cf <= 0;
                     of <= 0;
                 end
-                4'b0011: begin // OR
+                1'h4: begin // OR
                     result <= extended_A | extended_B;
                     cf <= 0;
                     of <= 0;
                 end
-                4'b0100: begin // XOR
+                1'h5: begin // XOR
                     result <= extended_A ^ extended_B;
                     cf <= 0;
                     of <= 0;
                 end
-                4'b0101: begin // SLL
+                1'h6: begin // SLL
                     result <= extended_A << extended_B[4:0];
                     cf <= 0;
                     of <= 0;
                 end
-                4'b0110: begin // SRL
+                1'h7: begin // SRL
                     result <= extended_A >> extended_B[4:0];
                     cf <= 0;
                     of <= 0;
                 end
-                4'b0111: begin // SRA
+                1'h8: begin // SRA
                     result <= $signed(extended_A) >>> extended_B[4:0];
                     cf <= 0;
                     of <= 0;
                 end
-                4'b1000: begin // SLT
+                1'h9: begin // SLT
                     result <= ($signed(extended_A) < $signed(extended_B)) ? 32'd1 : 32'd0;
                     cf <= 0;
                     of <= 0;
                 end
-                4'b1001: begin // SLTU
+                1'ha: begin // SLTU
                     result <= (extended_A < extended_B) ? 32'd1 : 32'd0;
                     cf <= 0;
                     of <= 0;
